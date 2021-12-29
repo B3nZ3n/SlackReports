@@ -105,6 +105,12 @@ ggplot(threads,
   theme(legend.position = "none")
 
 
+ggplot(threads,
+       aes(x = username,
+           y = reply_users,
+           fill = count_replies)) +
+  geom_tile()+
+  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")
 
   
   

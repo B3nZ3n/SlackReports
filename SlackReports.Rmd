@@ -4,7 +4,6 @@ output:
   html_document:
     code_folding: hide
     toc: true
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -20,6 +19,7 @@ library(plotly)
 library(ggalluvial)
 library(forcats)
 library(plotly)
+library(stringr)
 source(file = "services/ETL.R", encoding = "utf-8")
 
 #unzipFiles()
@@ -166,7 +166,7 @@ threads$reply_users <-
 threads <- threads[threads$count_replies > 5, ]
 
 
-#définition du chart
+#définition des charts
  ggplot(threads,
        aes(axis1 = username,
            axis2 = reply_users,
@@ -198,7 +198,8 @@ threads <- threads[threads$count_replies > 5, ]
            y = reply_users,
            fill = count_replies)) +
   geom_tile()+
-  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")
+  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")+
+ theme(axis.text.x = element_text(angle = -90, hjust = 0))
  
   ggplotly(p, 
          width = 800,
@@ -235,9 +236,26 @@ p <-ggplot(data = reactions, aes(name, count_reaction, fill = user)) +
   ylab("Number of uses") +
   theme(axis.text.x = element_text(angle = -90, hjust = 0))
 
+
 ggplotly(p, 
          width = 800,
          height = 600)
+
+
+
+ p <- ggplot(reactions,
+       aes(x =name ,
+           y = user,
+           fill = count_reaction)) +
+  geom_tile()+
+  ggtitle("todo")+
+   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+ 
+  ggplotly(p, 
+         width = 800,
+         height = 600)
+
+
 
 ```
 
@@ -317,4 +335,40 @@ ggplotly(p,
 
 ```
 
+### Rapport ZQSD004: pings
+
+```{r}
+#ne garder que les messages contenant un "@" vers un user
+allMessages %>% filter(str_detect(text, "<@.*>")) -> pings
+
+#extraire le ou les users pingés dans une nouvelle colonne
+pings$pinged <- str_extract_all(pings$text, "(?<=<@).{9}")
+
+#on expand la liste des users contenus dans pinged
+pings <- tidyr::unnest(pings, cols = pinged)
+
+pings <- pings[!pings$username == "NA",c("username","pinged")]
+
+pings$pinged <- with(allUsers, name[match(pings$pinged, id)])
+
+#on aggrège le nombre de ping par user
+pings %>% group_by(username, pinged) %>%
+  summarise(count_ping = n())  -> pings
+
+
+p <- ggplot(pings,
+       aes(x =pinged ,
+           y = username ,
+           fill = count_ping)) +
+  geom_tile()+
+  ggtitle("todo")+
+   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+ 
+  ggplotly(p, 
+         width = 800,
+         height = 600)
+
+
+
+```
 
