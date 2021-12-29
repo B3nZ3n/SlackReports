@@ -1,10 +1,11 @@
 ---
 title: "SlackReports"
 output: html_document
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE, message = FALSE)
 
 library(tidyr)
 library(dplyr)
@@ -52,7 +53,7 @@ allUsers$color <- paste0("#",allUsers$color)
 colors <- allUsers[!allUsers$color == "#NA",c("name","color")]
 plotColors <- colors$color
 names(plotColors) <- colors$name
-
+rm(colors)
 head(plotColors)
 ```
 
@@ -85,29 +86,38 @@ extractFileContent <- function(filename){
 ```
 
 
-On applique ensuite cette fonction sur toute la liste des fichiers
+On applique ensuite cette fonction sur toute la liste des fichiers (uniquement si le dataframe allMessage n'existe pas déjà dans le dossier data dû à un chargement antérieur).
+
+On enrichit/manipule ensuite les données et on enregistre le tout dans un fichier pour éviter de re-charger tous les fichiers à chaque run si on les a déj
 
 ```{r}
-allMessages <- sapply(files, FUN=extractFileContent)
-```
-
-On enrichit/manipule ensuite les données
-
-```{r}
-#on "applatit" le dataset
-allMessages <- rbindlist(allMessages, fill=TRUE)
-
-#on converti les timestamps en date
-allMessages$ts = as_datetime(as.integer(allMessages$ts))
-
-#on ajoute une colonne qui contient le "vrai" nom sur base de l'ID.
-allMessages$username <- with(allUsers, name[match(allMessages$user, id)])
-
-#on ne garde que les messages des users que l'on a conservé lors de l'étape d'extraction des users
-allMessages <- allMessages[allMessages$user %in% allUsers$id,]
-
-#on ne garde que les données de l'année 2021
-allMessages <- allMessages[allMessages$ts >= '2021-01-01 00:00:00' & allMessages$ts <= '2021-12-31 00:00:00' ,]
+if (!file.exists("data/all_Messages.rds")) {
+  allMessages <- sapply(files, FUN = extractFileContent)
+  
+  #on "applatit" le dataset
+  allMessages <- rbindlist(allMessages, fill = TRUE)
+  
+  #on converti les timestamps en date
+  allMessages$ts = as_datetime(as.integer(allMessages$ts))
+  
+  #on ajoute une colonne qui contient le "vrai" nom sur base de l'ID.
+  allMessages$username <-
+    with(allUsers, name[match(allMessages$user, id)])
+  
+  #on ne garde que les messages des users que l'on a conservé lors de l'étape d'extraction des users
+  allMessages <- allMessages[allMessages$user %in% allUsers$id, ]
+  
+  #on ne garde que les données de l'année 2021
+  allMessages <-
+    allMessages[allMessages$ts >= '2021-01-01 00:00:00' &
+                  allMessages$ts <= '2021-12-31 00:00:00' , ]
+  
+  #on enregistre le dataframe allMessages
+  saveRDS(allMessages, file = "data/all_Messages.rds")
+  
+} else{
+  allMessages <- readRDS(file = "data/all_Messages.rds")
+}
 
 
 ```
@@ -150,7 +160,10 @@ ggplot(threads,
   ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")+
   theme(legend.position = "none")
 ```
+
+
 ## Rapport ZQSD002: Utilisation des emojii par user
+
 ```{r}
   
 reactions <- allMessages[!allMessages$reactions == "NULL",c("user","reactions")]
@@ -178,7 +191,9 @@ ggplot(data = reactions, aes(name, count_reaction, fill = user)) +
   theme(axis.text.x = element_text(angle = -90, hjust = 0))
 ```
 
+
 ## Rapport ZQSD003: Le plus rigolo?
+
 ```{r}
 jokeScores <- rev(c("zero","one","two","three","four","five","six","seven","height","nine","keycap_ten"))
 
@@ -208,5 +223,8 @@ ggplot(data = reactions, aes(x=user, y=count_reaction, fill = name,order=name)) 
   xlab("username")+
   ylab("score")+
   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+```
+```{r echo=FALSE}
+selectInput("data","",c("val1"))
 ```
 
