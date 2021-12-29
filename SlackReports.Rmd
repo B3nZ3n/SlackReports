@@ -167,7 +167,7 @@ threads <-
 threads <- threads[threads$count_replies > 5, ]
 
 
-p <- ggplot(threads,
+ ggplot(threads,
        aes(axis1 = user,
            axis2 = reply_users,
            y = count_replies)) +
@@ -191,7 +191,7 @@ p <- ggplot(threads,
   ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"") +
   theme(legend.position = "none")
 
-ggplot(p)
+
 ```
 
 
