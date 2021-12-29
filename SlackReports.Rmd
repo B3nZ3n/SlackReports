@@ -26,6 +26,9 @@ source(file = "services/ETL.R", encoding = "utf-8")
 ## ETL
 La totalité des données provient de l'export des données slack (.zip) disponible ici: https://zqsd.slack.com/services/export
 
+Repo git: https://github.com/B3nZ3n/SlackReports
+
+
 ### Extraction des users
 
 ```{r}
