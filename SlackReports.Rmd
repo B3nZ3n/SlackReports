@@ -1,6 +1,9 @@
 ---
 title: "SlackReports"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
 runtime: shiny
 ---
 
@@ -16,6 +19,7 @@ library(ggplot2)
 library(plotly)
 library(ggalluvial)
 library(forcats)
+library(plotly)
 source(file = "services/ETL.R", encoding = "utf-8")
 
 #unzipFiles()
@@ -32,7 +36,7 @@ Repo git: https://github.com/B3nZ3n/SlackReports
 ### Extraction des users
 
 ```{r}
-allUsers <- fromJSON("input/users.json" ,flatten=TRUE) %>%
+allUsers <- fromJSON("input/users.json" , flatten = TRUE) %>%
   as.data.frame()
 ```
 
@@ -40,7 +44,7 @@ On ne garde que les users non supprimés et on exclu les bots. On ne conserve qu
 
 ```{r}
 keeps <- c("id", "name", "real_name", "color")
-allUsers <- allUsers[!allUsers$deleted & !allUsers$is_bot ,keeps]
+allUsers <- allUsers[!allUsers$deleted & !allUsers$is_bot , keeps]
 
 
 head(allUsers)
@@ -51,9 +55,9 @@ On enrichi les données pour qu'elles soient directement exploitables et on extr
 
 ```{r}
 #ajout du "#" devant le code couleur
-allUsers$color <- paste0("#",allUsers$color)
+allUsers$color <- paste0("#", allUsers$color)
 
-colors <- allUsers[!allUsers$color == "#NA",c("name","color")]
+colors <- allUsers[!allUsers$color == "#NA", c("name", "color")]
 plotColors <- colors$color
 names(plotColors) <- colors$name
 rm(colors)
@@ -67,24 +71,33 @@ On commence par lister tous les fichiers présents dans le dossier general
 
 
 ```{r}
-files <- list.files(path = "input/general", full.names = TRUE) 
+files <- list.files(path = "input/general", full.names = TRUE)
 files <- files[order(files)]
 
 length(files)
 
 ```
-On extrait ensuite les données de chaque fichier (un par jour, depuis 2015). Pour se faire on définit une fonction qui va prendre en entrée le nom du fichier et retourner un data frame contenant les données de ce jour
+On extrait ensuite les données de chaque fichier (un par jour, depuis 2015). Pour ce faire on définit une fonction qui va prendre en entrée le nom du fichier et retourner un data frame contenant les données de ce jour
 
 
 ```{r}
-extractFileContent <- function(filename){
+extractFileContent <- function(filename) {
+  messages <- fromJSON(filename, flatten = TRUE)
   
-  messages <- fromJSON(filename,flatten = TRUE)
+  messages %>%
+    select(one_of(
+      c(
+        "client_msg_id",
+        "type",
+        "text",
+        "user",
+        "ts",
+        "reply_users",
+        "reactions"
+      )
+    )) %>%
+    as.data.frame()
   
-  messages %>% 
-  select(one_of(c("client_msg_id","type","text","user","ts","reply_users","reactions"))) %>%
-  as.data.frame() 
-
 }
 ```
 
@@ -108,12 +121,12 @@ if (!file.exists("data/all_Messages.rds")) {
     with(allUsers, name[match(allMessages$user, id)])
   
   #on ne garde que les messages des users que l'on a conservé lors de l'étape d'extraction des users
-  allMessages <- allMessages[allMessages$user %in% allUsers$id, ]
+  allMessages <- allMessages[allMessages$user %in% allUsers$id,]
   
   #on ne garde que les données de l'année 2021
   allMessages <-
     allMessages[allMessages$ts >= '2021-01-01 00:00:00' &
-                  allMessages$ts <= '2021-12-31 00:00:00' , ]
+                  allMessages$ts <= '2021-12-31 00:00:00' ,]
   
   #on enregistre le dataframe allMessages
   saveRDS(allMessages, file = "data/all_Messages.rds")
@@ -129,39 +142,56 @@ if (!file.exists("data/all_Messages.rds")) {
 ## Rapport ZQSD001: Réponses dans les threads
 
 ```{r}
-threads <- allMessages[!allMessages$reply_users == "NULL",c("user","reply_users")]
+threads <-
+  allMessages[!allMessages$reply_users == "NULL", c("user", "reply_users")]
 threads <- tidyr::unnest(threads, cols = reply_users)
 
 
 
 
-threads %>% group_by(user,reply_users) %>%
+threads %>% group_by(user, reply_users) %>%
   summarise(count_replies = n())  -> threads
 
 threads$user <- with(allUsers, name[match(threads$user, id)])
-threads$reply_users <- with(allUsers, name[match(threads$reply_users, id)])
-threads <- threads[threads$user %in% c("b3nz3n","logs","qn7o","roux","rylou","tony","vv","woookash"),]
-threads <- threads[threads$count_replies > 5,]
+threads$reply_users <-
+  with(allUsers, name[match(threads$reply_users, id)])
+threads <-
+  threads[threads$user %in% c("b3nz3n",
+                              "logs",
+                              "qn7o",
+                              "roux",
+                              "rylou",
+                              "tony",
+                              "vv",
+                              "woookash"), ]
+threads <- threads[threads$count_replies > 5, ]
 
 
-ggplot(threads,
+p <- ggplot(threads,
        aes(axis1 = user,
            axis2 = reply_users,
            y = count_replies)) +
   
-  geom_alluvium(aes(fill = user),curve_type = "sigmoid",width = 1/10, alpha=0.7) +
+  geom_alluvium(
+    aes(fill = user),
+    curve_type = "sigmoid",
+    width = 1 / 10,
+    alpha = 0.7
+  ) +
   
-  geom_stratum(width = 1/10) +
+  geom_stratum(width = 1 / 10) +
   
-  geom_text(stat = "stratum", 
-            aes(label= paste(after_stat(stratum))))+
+  geom_text(stat = "stratum",
+            aes(label = paste(after_stat(stratum)))) +
   
   scale_x_discrete(limits = c("user", "reply_users"),
                    expand = c(.1, .1)) +
   
-  scale_fill_manual(values = plotColors )+
-  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")+
+  scale_fill_manual(values = plotColors) +
+  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"") +
   theme(legend.position = "none")
+
+ggplot(p)
 ```
 
 
@@ -169,11 +199,12 @@ ggplot(threads,
 
 ```{r}
   
-reactions <- allMessages[!allMessages$reactions == "NULL",c("user","reactions")]
+reactions <-
+  allMessages[!allMessages$reactions == "NULL", c("user", "reactions")]
 reactions <- tidyr::unnest(reactions, cols = reactions)
-reactions <- reactions[,c("user","name","count")]
+reactions <- reactions[, c("user", "name", "count")]
 
-reactions %>% group_by(user,name) %>%
+reactions %>% group_by(user, name) %>%
   summarise(count_reaction = sum(count))  -> reactions
 
 reactions$user <- with(allUsers, name[match(reactions$user, id)])
@@ -181,51 +212,94 @@ reactions$user <- with(allUsers, name[match(reactions$user, id)])
 reactions %>% group_by(name) %>% summarise(sum(count_reaction)) %>% top_n(n = 10) -> top10emojii
 
 
-reactions <- reactions[reactions$name %in% top10emojii$name,]
+reactions <- reactions[reactions$name %in% top10emojii$name, ]
 
 
 
-ggplot(data = reactions, aes(name, count_reaction, fill = user)) +
-  geom_bar(stat ='identity') +
+p <-ggplot(data = reactions, aes(name, count_reaction, fill = user)) +
+  geom_bar(stat = 'identity') +
   scale_fill_manual(values = plotColors) +
   ggtitle("Emojii usage per user") +
-  xlab("emojii")+
-  ylab("Number of uses")+
+  xlab("emojii") +
+  ylab("Number of uses") +
   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+
+ggplotly(p)
+
 ```
 
 
 ## Rapport ZQSD003: Le plus rigolo?
 
 ```{r}
-jokeScores <- rev(c("zero","one","two","three","four","five","six","seven","height","nine","keycap_ten"))
+jokeScores <-
+  rev(
+    c(
+      "zero",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "height",
+      "nine",
+      "keycap_ten"
+    )
+  )
 
-jokeColors <- rev(c("#FF0000","#dd776e","#e2886c","#e79a69","#ecac67","#e9b861","#f5ce62","#d4c86a","#b0be6e","#94bd77","#73b87e"))
+jokeColors <-
+  rev(
+    c(
+      "#FF0000",
+      "#dd776e",
+      "#e2886c",
+      "#e79a69",
+      "#ecac67",
+      "#e9b861",
+      "#f5ce62",
+      "#d4c86a",
+      "#b0be6e",
+      "#94bd77",
+      "#73b87e"
+    )
+  )
 names(jokeColors) <- jokeScores
 
-reactions <- allMessages[!allMessages$reactions == "NULL",c("user","reactions")]
+reactions <-
+  allMessages[!allMessages$reactions == "NULL", c("user", "reactions")]
 reactions <- tidyr::unnest(reactions, cols = reactions)
-reactions <- reactions[,c("user","name","count")]
+reactions <- reactions[, c("user", "name", "count")]
 
-reactions %>% group_by(user,name) %>%
+reactions %>% group_by(user, name) %>%
   summarise(count_reaction = sum(count))  -> reactions
 
 reactions$user <- with(allUsers, name[match(reactions$user, id)])
 
-reactions <- reactions[reactions$name %in% jokeScores,]
+reactions <- reactions[reactions$name %in% jokeScores, ]
 
 
-reactions$name <- ordered(reactions$name, levels=names(jokeColors))
+reactions$name <- ordered(reactions$name, levels = names(jokeColors))
 
 
 
-ggplot(data = reactions, aes(x=user, y=count_reaction, fill = name,order=name)) +
-  geom_bar(stat ='identity') +
-  scale_fill_manual("",values=jokeColors)+
+p <- ggplot(data = reactions, aes(
+  x = user,
+  y = count_reaction,
+  fill = name,
+  order = name
+)) +
+  geom_bar(stat = 'identity') +
+  scale_fill_manual("", values = jokeColors) +
   ggtitle("Les plus rigolos? depuis 2015") +
-  xlab("username")+
-  ylab("score")+
+  xlab("username") +
+  ylab("score") +
   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+
+ggplotly(p)
+
+
 ```
 ```{r echo=FALSE}
 selectInput("data","",c("val1"))
