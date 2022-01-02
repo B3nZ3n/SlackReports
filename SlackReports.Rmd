@@ -355,6 +355,7 @@ pings$pinged <- with(allUsers, name[match(pings$pinged, id)])
 pings %>% group_by(username, pinged) %>%
   summarise(count_ping = n())  -> pings
 
+pings <- pings[!pings$pinged == "NA",]
 
 p <- ggplot(pings,
        aes(x =pinged ,
