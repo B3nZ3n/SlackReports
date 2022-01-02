@@ -377,6 +377,8 @@ p <- ggplot(pings,
          height = 600)
 ```
 
+
+```{r echo=FALSE, results=FALSE}
 source(file = "services/deploy-to-s3.R", encoding = "utf-8")
 mustDeploy = Sys.getenv("ZQSD_REPORT_MUST_DEPLOY") == "true"
 if (mustDeploy) {
@@ -385,3 +387,4 @@ if (mustDeploy) {
 } else {
   printf("Do not deploy")
 }
+```
