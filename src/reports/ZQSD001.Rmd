@@ -1,0 +1,64 @@
+# Rapport ZQSD001: Réponses dans les threads
+
+lalalala
+
+```{r ZQSD001, echo=FALSE}
+
+#on ne garde que les messages qui ont eu une réponse (thread)
+threads <-
+  allMessages[!allMessages$reply_users == "NULL", c("username", "reply_users")]
+
+#on expand la liste des users contenus dans reply_users
+threads <- tidyr::unnest(threads, cols = reply_users)
+
+#on aggrège le nombre de replies par user
+threads %>% group_by(username, reply_users) %>%
+  summarise(count_replies = n())  -> threads
+
+#on lookup et remplace les valeurs d'ID des users par leur vrai nom
+threads$reply_users <-
+  with(allUsers, name[match(threads$reply_users, id)])
+
+#pour ne pas surcharger le chart on ne garde que les usernames qui ont eu plus que 5 replies
+threads <- threads[threads$count_replies > 5, ]
+
+
+#définition des charts
+ ggplot(threads,
+       aes(axis1 = username,
+           axis2 = reply_users,
+           y = count_replies)) +
+  
+  geom_alluvium(
+    aes(fill = username),
+    curve_type = "sigmoid",
+    width = 1 / 10,
+    alpha = 0.7
+  ) +
+  
+  geom_stratum(width = 1 / 10) +
+  
+  geom_text(stat = "stratum",
+            aes(label = paste(after_stat(stratum)))) +
+  
+  scale_x_discrete(limits = c("username", "reply_users"),
+                   expand = c(.1, .1)) +
+  
+  scale_fill_manual(values = plotColors) +
+  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"") +
+  theme(legend.position = "none")
+
+ 
+ 
+ p <- ggplot(threads,
+       aes(x = username,
+           y = reply_users,
+           fill = count_replies)) +
+  geom_tile()+
+  ggtitle("Nombre de messages envoyés par \"reply_users\" dans un thread créé par \"user\"")+
+ theme(axis.text.x = element_text(angle = -90, hjust = 0))
+ 
+  ggplotly(p, 
+         width = 800,
+         height = 600)
+```

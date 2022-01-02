@@ -1,0 +1,114 @@
+# ETL
+La totalité des données provient de l'export des données slack (.zip) disponible ici: https://zqsd.slack.com/services/export
+
+Repo git: https://github.com/B3nZ3n/SlackReports
+
+
+## Extraction des users
+
+```{r}
+allUsers <- fromJSON("../input/users.json" , flatten = TRUE) %>%
+  as.data.frame()
+```
+
+On ne garde que les users non supprimés et on exclu les bots. On ne conserve que les colonnes id, name, real_name et color
+
+```{r}
+keeps <- c("id", "name", "real_name", "color")
+allUsers <- allUsers[!allUsers$deleted & !allUsers$is_bot , keeps]
+
+
+head(allUsers)
+```
+
+## Extraction des couleurs
+On enrichi les données pour qu'elles soient directement exploitables et on extrait les données de couleur qui seront utilisées plus tard dans tous les charts
+
+```{r}
+#ajout du "#" devant le code couleur
+allUsers$color <- paste0("#", allUsers$color)
+
+colors <- allUsers[!allUsers$color == "#NA", c("name", "color")]
+plotColors <- colors$color
+names(plotColors) <- colors$name
+rm(colors)
+head(plotColors)
+```
+
+
+
+## Extraction des messages
+On commence par lister tous les fichiers présents dans le dossier general
+
+
+```{r}
+files <- list.files(path = "../input/general", full.names = TRUE)
+files <- files[order(files)]
+
+length(files)
+
+```
+On extrait ensuite les données de chaque fichier (un par jour, depuis 2015). Pour ce faire on définit une fonction qui va prendre en entrée le nom du fichier et retourner un data frame contenant les données de ce jour
+
+
+```{r}
+extractFileContent <- function(filename) {
+  messages <- fromJSON(filename, flatten = TRUE)
+  
+  messages %>%
+    select(one_of(
+      c(
+        "client_msg_id",
+        "type",
+        "text",
+        "user",
+        "ts",
+        "reply_users",
+        "reactions"
+      )
+    )) %>%
+    as.data.frame()
+  
+}
+```
+
+
+On applique ensuite cette fonction sur toute la liste des fichiers (uniquement si le dataframe allMessage n'existe pas déjà dans le dossier data dû à un chargement antérieur).
+
+On enrichit/manipule ensuite les données et on enregistre le tout dans un fichier pour éviter de re-charger tous les fichiers à chaque run si on les a déj
+
+```{r}
+if (!file.exists("../data/all_Messages.rds")) {
+  allMessages <- sapply(files, FUN = extractFileContent)
+  
+  #on "applatit" le dataset
+  allMessages <- rbindlist(allMessages, fill = TRUE)
+  
+  #on supprime les reply_users vides
+  allMessages <- allMessages[!reply_users == "list()",]
+  
+  #on converti les timestamps en date
+  allMessages$ts = as_datetime(as.integer(allMessages$ts))
+  
+  #on ajoute une colonne qui contient le "vrai" nom sur base de l'ID.
+ allMessages$username <-
+   with(allUsers, name[match(allMessages$user, id)])
+ 
+ #on ne garde que les messages des users que l'on a conservé lors de l'étape d'extraction des users
+ allMessages <- allMessages[allMessages$user %in% allUsers$id,]
+ 
+ #on ne garde que les données de l'année 2021
+ allMessages <-
+   allMessages[allMessages$ts >= '2021-01-01 00:00:00' &
+                 allMessages$ts <= '2021-12-31 00:00:00' ,]
+ 
+ #on enregistre le dataframe allMessages
+ saveRDS(allMessages, file = "../data/all_Messages.rds")
+ 
+ } else{
+   #si on a déja chargé précédemment, on charge directement le dataframe
+   allMessages <- readRDS(file = "../data/all_Messages.rds")
+ }
+
+
+```

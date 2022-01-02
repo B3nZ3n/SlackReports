@@ -1,0 +1,52 @@
+---
+title: "SlackReports"
+author: "B3nZ3n"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+github-repo: https://github.com/B3nZ3n/SlackReports
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE, message = FALSE)
+
+library(tidyr)
+library(dplyr)
+library(data.table)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(ggalluvial)
+library(forcats)
+library(stringr)
+library(bookdown)
+
+printf <- function(...) invisible(print(sprintf(...)))
+
+source(file = "services/extract-zip.R", encoding = "utf-8")
+mustUnzip = Sys.getenv("ZQSD_REPORT_MUST_UNZIP") == "true"
+if (mustUnzip) {
+  printf("Unzipping file...")
+  unzipFiles()
+} else {
+  printf("Skip file unzip.")
+}
+
+```
+
+
+
+
+
+```{r deploy, echo=FALSE, results=FALSE}
+source(file = "services/deploy-to-s3.R", encoding = "utf-8")
+mustDeploy = Sys.getenv("ZQSD_REPORT_MUST_DEPLOY") == "true"
+if (mustDeploy) {
+  printf("Deploying to S3...")
+  uploadHtmlFile()
+} else {
+  printf("Do not deploy")
+}
+```
+

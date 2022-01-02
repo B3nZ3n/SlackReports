@@ -1,0 +1,74 @@
+# Rapport ZQSD003: Le plus rigolo?
+
+```{r ZQSD003, echo=FALSE}
+jokeScores <-
+  rev(
+    c(
+      "zero",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "height",
+      "nine",
+      "keycap_ten"
+    )
+  )
+
+jokeColors <-
+  rev(
+    c(
+      "#FF0000",
+      "#dd776e",
+      "#e2886c",
+      "#e79a69",
+      "#ecac67",
+      "#e9b861",
+      "#f5ce62",
+      "#d4c86a",
+      "#b0be6e",
+      "#94bd77",
+      "#73b87e"
+    )
+  )
+names(jokeColors) <- jokeScores
+
+reactions <-
+  allMessages[!allMessages$reactions == "NULL", c("user", "reactions")]
+reactions <- tidyr::unnest(reactions, cols = reactions)
+reactions <- reactions[, c("user", "name", "count")]
+
+reactions %>% group_by(user, name) %>%
+  summarise(count_reaction = sum(count))  -> reactions
+
+reactions$user <- with(allUsers, name[match(reactions$user, id)])
+
+reactions <- reactions[reactions$name %in% jokeScores, ]
+
+
+reactions$name <- ordered(reactions$name, levels = names(jokeColors))
+
+
+
+p <- ggplot(data = reactions, aes(
+  x = user,
+  y = count_reaction,
+  fill = name,
+  order = name
+)) +
+  geom_bar(stat = 'identity') +
+  scale_fill_manual("", values = jokeColors) +
+  ggtitle("Les plus rigolos? depuis 2015") +
+  xlab("username") +
+  ylab("score") +
+  theme(axis.text.x = element_text(angle = -90, hjust = 0))
+
+ggplotly(p, 
+         width = 800,
+         height = 600)
+
+
+```

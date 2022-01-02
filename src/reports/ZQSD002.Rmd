@@ -1,0 +1,51 @@
+# Rapport ZQSD002: Utilisation des emojii par user
+
+```{r ZQSD002, echo=FALSE}
+  
+reactions <-
+  allMessages[!allMessages$reactions == "NULL", c("user", "reactions")]
+reactions <- tidyr::unnest(reactions, cols = reactions)
+reactions <- reactions[, c("user", "name", "count")]
+
+reactions %>% group_by(user, name) %>%
+  summarise(count_reaction = sum(count))  -> reactions
+
+reactions$user <- with(allUsers, name[match(reactions$user, id)])
+
+reactions %>% group_by(name) %>% summarise(sum(count_reaction)) %>% top_n(n = 10) -> top10emojii
+
+
+reactions <- reactions[reactions$name %in% top10emojii$name, ]
+
+
+
+p <-ggplot(data = reactions, aes(name, count_reaction, fill = user)) +
+  geom_bar(stat = 'identity') +
+  scale_fill_manual(values = plotColors) +
+  ggtitle("Emojii usage per user") +
+  xlab("emojii") +
+  ylab("Number of uses") +
+  theme(axis.text.x = element_text(angle = -90, hjust = 0))
+
+
+ggplotly(p, 
+         width = 800,
+         height = 600)
+
+
+
+ p <- ggplot(reactions,
+       aes(x =name ,
+           y = user,
+           fill = count_reaction)) +
+  geom_tile()+
+  ggtitle("todo")+
+   theme(axis.text.x = element_text(angle = -90, hjust = 0))
+ 
+  ggplotly(p, 
+         width = 800,
+         height = 600)
+
+
+
+```

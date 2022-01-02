@@ -1,0 +1,8 @@
+bookdown::gitbook:
+  css: style.css
+  config:
+    toc:
+      before: |
+        <li><a href="./">Slack Reports</a></li>
+    edit: https://github.com/B3nZ3n/SlackReports/edit/master/%s
+
