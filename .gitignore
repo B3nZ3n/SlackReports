@@ -5,3 +5,6 @@
 input
 SlackReports_cache
 rsconnect
+*.zip
+/tmp
+.DS_Store
